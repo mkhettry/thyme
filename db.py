@@ -5,7 +5,7 @@ from sqlalchemy import Table, Column, Integer, String, Text, ForeignKey, Date, F
 from sqlalchemy.sql import select
 from datetime import date
 
-if (os.environ.get('HEROKU') is None):
+if os.environ.get('HEROKU') is None:
     engine = create_engine('postgres://@localhost/thyme', echo=True)
 else:
     print("database URL is: " + os.environ['DATABASE_URL'])
@@ -14,40 +14,113 @@ else:
 metadata = MetaData(bind=engine)
 
 finins = Table('institutions', metadata,
-              Column('id', Integer, primary_key=True),
-              Column('name', String))
+               Column('id', Integer, primary_key=True),
+               Column('name', String, unique=True))
+
+categories = Table('categories', metadata,
+                   Column('id', Integer, primary_key=True),
+                   Column('parent_id', Integer, ForeignKey('categories.id')),
+                   Column('name', String))
 
 xactions = Table('transactions', metadata,
                  Column('id', Integer, primary_key=True),
                  Column('institution_id', Integer, ForeignKey('institutions.id')),
+                 Column('category_id', Integer, ForeignKey('categories.id')),
                  Column('date', Date),
                  Column('description', String),
                  Column('amount', Float))
 
 metadata.create_all(engine)
 
+UNCATEGORIZED = 'uncategorized'
+HOME = 'home'
+GROCERIES = 'groceries'
+RESTAURANTS = 'restaurants'
+COFFEE = 'coffee'
+HEALTH = 'health'
+CASH = 'cash/atm'
+UTILITIES = 'utilities'
+AUTO_TRANSPORT = 'auto/transportation'
+TRAVEL = 'travel'
+PERSONAL_CARE = 'personal_care'
+SHOPPING = 'shopping'
+TRANSFER = 'transfer'
+
+for c in [UNCATEGORIZED, HOME, GROCERIES, RESTAURANTS, COFFEE, HEALTH, CASH, UTILITIES, TRAVEL, AUTO_TRANSPORT,
+          PERSONAL_CARE, SHOPPING]:
+    if not engine.execute(select([categories.c.id]).where(categories.c.name == c)).fetchone():
+        engine.execute(categories.insert(), name=c)
+
+category_pattern_map = {
+    HOME: ['mortgage', 'hoa'],
+    COFFEE: ['peets', 'starbucks', "peet's", 'coffee', 'tea'],
+    GROCERIES: ['wholefoods', 'wholefds', 'grocery', 'safeway'],
+    RESTAURANTS: ['pizza', 'pizzeria', 'deli'],
+    AUTO_TRANSPORT: ['rotten robbie', 'chevron', 'shell', 'valero', 'caltrain', 'bart'],
+    TRAVEL: ['airline', 'airlines', 'orbitz', 'kayak', 'travel'],
+    PERSONAL_CARE: ['spa'],
+    UTILITIES: ['vonage', 'comcast']
+}
+
+
 def exists(date, description, amount):
-    stmt = select([xactions.c.id]).\
-              where(xactions.c.date == date).\
-              where(xactions.c.description == description).\
-              where(xactions.c.amount == amount)
+    stmt = select([xactions.c.id]). \
+        where(xactions.c.date == date). \
+        where(xactions.c.description == description). \
+        where(xactions.c.amount == amount)
     return engine.execute(stmt).fetchone()
 
-def insert_xaction(institution_id, row):
-    dt_fields = [int(r) for r in row[0].split("/")]
-    dt = date(dt_fields[2], dt_fields[0], dt_fields[1])
-    print(dt)
-    description = row[1]
-    amount = float(row[2])
+
+def read_for_month_year(year, month):
+    start = date(year, month, 1)
+
+    if month == 12:
+        end = date(year + 1, 1, 1)
+    else:
+        end = date(year, month + 1, 1)
+
+    stmt = select([xactions]).where(xactions.c.date >= start).where(xactions.c.date < end)
+    return engine.execute(stmt)
+
+
+def find_institution_id(name):
+    stmt = select([finins.c.id]).where(finins.c.name == name)
+    return engine.execute(stmt).fetchone()
+
+
+def start_load():
+    rows = engine.execute(select([categories]))
+    category_map = {}
+    for r in rows:
+        category_map[r['name']] = r['id']
+    return category_map
+
+
+def insert_transaction(institution_id, categories_map, **kwargs):
+    if len(kwargs) != 3:
+        return
+
+    dt = kwargs['date']
+    description = kwargs['description']
+    amount = kwargs['amount']
 
     skip = exists(dt, description, amount)
+
     if not skip:
         engine.execute(xactions.insert(),
-                       institution_id = institution_id,
-                       date = dt,
-                       description = description,
-                       amount = amount)
+                       institution_id=institution_id,
+                       category_id=guess_category(description, categories_map),
+                       date=dt,
+                       description=description,
+                       amount=amount)
 
-insert_xaction(1, ['10/31/2013',"TRINET DES:PAYROLL ID:00001055623 INDN:KHETTRY,MANISH CO ID:19433...","0.07","4515.26"])
 
-#print(exists(date(2013, 10, 31), 'TRINET DES:PAYROLL ID:00001055623 INDN:KHETTRY,MANISH CO ID:19433...', 0.07))
+def guess_category(description, categories_map):
+    for category_name in category_pattern_map:
+        possible_patterns = category_pattern_map[category_name]
+        for pattern in possible_patterns:
+            # Use regexp (\bpattern\b) instead of just string contains.
+            if pattern in description.lower():
+                return categories_map[category_name]
+
+    return categories_map[UNCATEGORIZED]
