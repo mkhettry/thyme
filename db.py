@@ -2,7 +2,7 @@ import os
 
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy import Table, Column, Integer, String, Text, ForeignKey, Date, Float
-from sqlalchemy.sql import select
+from sqlalchemy.sql import select, func
 from datetime import date
 
 if os.environ.get('HEROKU') is None:
@@ -79,9 +79,27 @@ def read_for_month_year(year, month):
     else:
         end = date(year, month + 1, 1)
 
-    stmt = select([xactions]).where(xactions.c.date >= start).where(xactions.c.date < end)
+    return read_txn_for_time(start, end)
+
+
+def read_txn_for_time(start_time, end_time):
+    stmt = select([xactions.c.description, xactions.c.date, xactions.c.amount, categories.c.name]).\
+                    where(xactions.c.date >= start_time).\
+                    where( xactions.c.date < end_time).\
+                    select_from(xactions.join(categories)).\
+                    order_by(xactions.c.date)
+
     return engine.execute(stmt)
 
+def read_txn_for_time_by_category(start_time, end_time):
+    stmt = select([categories.c.name, func.sum(xactions.c.amount)]).\
+                    where(xactions.c.date >= start_time).\
+                    where( xactions.c.date < end_time).\
+                    select_from(xactions.join(categories)).\
+                    group_by(categories.c.name)\
+
+
+    return engine.execute(stmt)
 
 def find_institution_id(name):
     stmt = select([finins.c.id]).where(finins.c.name == name)
@@ -124,3 +142,7 @@ def guess_category(description, categories_map):
                 return categories_map[category_name]
 
     return categories_map[UNCATEGORIZED]
+
+
+def list_categories():
+    return engine.execute(select([categories]))
