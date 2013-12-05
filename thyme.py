@@ -62,7 +62,6 @@ class Thyme(cmd.Cmd):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(filename='example.log', level=logging.INFO)
     thyme = Thyme()
     thyme.prompt = "thyme> "
     thyme.cmdloop()

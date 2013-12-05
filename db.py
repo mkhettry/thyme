@@ -4,6 +4,10 @@ from sqlalchemy import create_engine, MetaData
 from sqlalchemy import Table, Column, Integer, String, Text, ForeignKey, Date, Float
 from sqlalchemy.sql import select, func
 from datetime import date
+import logging
+
+logging.basicConfig(filename='thyme.log', level=logging.INFO)
+logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 if os.environ.get('HEROKU') is None:
     engine = create_engine('postgres://@localhost/thyme')
@@ -83,6 +87,7 @@ def read_for_month_year(year, month):
 
 
 def read_txn_for_time(start_time, end_time):
+    logging.info("Reading transactions from %s to %s" % (str(start_time), str(end_time)))
     stmt = select([xactions.c.description, xactions.c.date, xactions.c.amount, categories.c.name]).\
                     where(xactions.c.date >= start_time).\
                     where( xactions.c.date < end_time).\
