@@ -6,7 +6,7 @@ from sqlalchemy.sql import select, func
 from datetime import date
 
 if os.environ.get('HEROKU') is None:
-    engine = create_engine('postgres://@localhost/thyme', echo=True)
+    engine = create_engine('postgres://@localhost/thyme')
 else:
     print("database URL is: " + os.environ['DATABASE_URL'])
     engine = create_engine(os.environ['DATABASE_URL'])

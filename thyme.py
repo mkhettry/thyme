@@ -2,6 +2,7 @@ import cmd
 import db
 from datetime import date
 
+import logging
 
 class Thyme(cmd.Cmd):
     """Simple command line interpreter to explore expenses"""
@@ -61,6 +62,7 @@ class Thyme(cmd.Cmd):
 
 
 if __name__ == '__main__':
+    logging.basicConfig(filename='example.log', level=logging.INFO)
     thyme = Thyme()
     thyme.prompt = "thyme> "
     thyme.cmdloop()
