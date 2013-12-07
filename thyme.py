@@ -7,6 +7,10 @@ import logging
 class Thyme(cmd.Cmd):
     """Simple command line interpreter to explore expenses"""
 
+    def __init__(self):
+        cmd.Cmd.__init__(self)
+        self.tx_id_map = {}
+
     def do_EOF(self, args):
         return True
 
@@ -17,10 +21,29 @@ class Thyme(cmd.Cmd):
         """
         start, end = Thyme.get_start_end(args)
         transactions = db.read_txn_for_time(start, end)
+        i = 0
         for tx in transactions:
             desc = " ".join(tx['description'].split()).title()
-            print("%-8s %-30s %-20s %10.2f" %
-                  (tx['date'].isoformat(), desc, tx['name'].title(), tx['amount']))
+            i += 1
+            self.tx_id_map[i] = tx["id"]
+            print("%-3s %-8s %-30s %-20s %10.2f" %
+                  (i, tx['date'].isoformat(), desc, tx['name'].title(), tx['amount']))
+
+    def do_updcat(self, args=""):
+        """
+        update the category of one transaction. You can say `updcat <txid> <categoryname>'
+        """
+        txid, category = args.split()
+        trimmed_category = category.strip().lower()
+        category_id = db.find_category_id(trimmed_category)
+        if not category_id:
+            print("I couldn't find a category %s" % trimmed_category)
+        else:
+            rowcount = db.update_tx_category(self.tx_id_map[int(txid)], category_id)
+            if rowcount == 0:
+                print("no rows found")
+            else:
+                print("row updated")
 
     def do_bycat(self, args=""):
         """ show transactions by category. bycat 10 will aggregate transactions by category for the month of october"""

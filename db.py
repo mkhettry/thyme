@@ -2,7 +2,7 @@ import os
 
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy import Table, Column, Integer, String, Text, ForeignKey, Date, Float
-from sqlalchemy.sql import select, func
+from sqlalchemy.sql import select, func, update
 from datetime import date
 import logging
 
@@ -88,7 +88,7 @@ def read_for_month_year(year, month):
 
 def read_txn_for_time(start_time, end_time):
     logging.info("Reading transactions from %s to %s" % (str(start_time), str(end_time)))
-    stmt = select([xactions.c.description, xactions.c.date, xactions.c.amount, categories.c.name]).\
+    stmt = select([xactions.c.id, xactions.c.description, xactions.c.date, xactions.c.amount, categories.c.name]).\
                     where(xactions.c.date >= start_time).\
                     where( xactions.c.date < end_time).\
                     select_from(xactions.join(categories)).\
@@ -106,9 +106,15 @@ def read_txn_for_time_by_category(start_time, end_time):
 
     return engine.execute(stmt)
 
+
 def find_institution_id(name):
     stmt = select([finins.c.id]).where(finins.c.name == name)
     return engine.execute(stmt).fetchone()
+
+
+def find_category_id(name):
+    stmt = select([categories.c.id]).where(categories.c.name == name)
+    return engine.execute(stmt).fetchone()[0]
 
 
 def start_load():
@@ -151,3 +157,9 @@ def guess_category(description, categories_map):
 
 def list_categories():
     return engine.execute(select([categories]))
+
+
+def update_tx_category(txid, category_id):
+    stmt = update(xactions).where(xactions.c.id == txid).values(category_id = category_id)
+    upd = engine.execute(stmt)
+    return upd.rowcount
