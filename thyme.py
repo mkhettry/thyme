@@ -19,15 +19,27 @@ class Thyme(cmd.Cmd):
         list transactions. You can say 'list 10' for transactions in october.
         without a numeric list defaults to the current month.
         """
-        start, end = Thyme.get_start_end(args)
-        transactions = db.read_txn_for_time(start, end)
+        args_array = args.split()
+        if len(args_array) == 1:
+            time = args_array[0]
+            category_filter = None
+        else:
+            time = args_array[1]
+            category_filter = args_array[0].strip().lower()
+
+        start, end = Thyme.get_start_end(time)
+        transactions = db.read_txn_for_time(start, end, category_filter)
         i = 0
+        sum = 0
+
         for tx in transactions:
             desc = " ".join(tx['description'].split()).title()
             i += 1
             self.tx_id_map[i] = tx["id"]
+            sum += float(tx['amount'])
             print("%-3s %-8s %-30s %-20s %10.2f" %
                   (i, tx['date'].isoformat(), desc, tx['name'].title(), tx['amount']))
+        print("%67s %10.2f" % ("Total", sum))
 
     def do_updcat(self, args=""):
         """
@@ -49,10 +61,11 @@ class Thyme(cmd.Cmd):
         """ show transactions by category. bycat 10 will aggregate transactions by category for the month of october"""
         start, end = Thyme.get_start_end(args)
         transactions = db.read_txn_for_time_by_category(start, end)
+        sum = 0.0
         for tx in transactions:
-            print("%-30s %10.2f" %
-                  (tx['name'].title(), tx[1]))
-
+            sum += float(tx[1])
+            print("%-30s %10.2f" % (tx['name'].title(), tx[1]))
+        print("%-30s %10.2f" % ("", sum))
 
 
     def do_cat(self, args):
