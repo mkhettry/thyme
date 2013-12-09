@@ -19,7 +19,8 @@ metadata = MetaData(bind=engine)
 
 finins = Table('institutions', metadata,
                Column('id', Integer, primary_key=True),
-               Column('name', String, unique=True))
+               Column('name', String, unique=True),
+               Column('type', String, nullable=False))
 
 categories = Table('categories', metadata,
                    Column('id', Integer, primary_key=True),
@@ -38,14 +39,19 @@ metadata.create_all(engine)
 
 UNCATEGORIZED = 'uncategorized'
 HOME = 'home'
+UTILITIES = 'utilities'
 GROCERIES = 'groceries'
 RESTAURANTS = 'restaurants'
+ENTERTAINMENT = 'entertainment'
 COFFEE = 'coffee'
 HEALTH = 'health'
 CASH = 'cash/atm'
-UTILITIES = 'utilities'
+GIFT = 'gift/donations'
 AUTO_TRANSPORT = 'auto/transportation'
+INCOME = 'income'
 TRAVEL = 'travel'
+TAXES = 'taxes'
+FEES = 'fees/interest'
 PERSONAL_CARE = 'personal_care'
 SHOPPING = 'shopping'
 TRANSFER = 'transfer'
@@ -57,13 +63,15 @@ for c in [UNCATEGORIZED, HOME, GROCERIES, RESTAURANTS, COFFEE, HEALTH, CASH, UTI
 
 category_pattern_map = {
     HOME: ['mortgage', 'hoa'],
-    COFFEE: ['peets', 'starbucks', "peet's", 'coffee', 'tea'],
+    COFFEE: ['peets', 'starbucks', "peet's", 'coffee', 'tea', 'espresso'],
     GROCERIES: ['wholefoods', 'wholefds', 'grocery', 'safeway'],
-    RESTAURANTS: ['pizza', 'pizzeria', 'deli'],
+    RESTAURANTS: ['pizza', 'pizzeria', 'deli', 'kitchen', 'restuarant'],
     AUTO_TRANSPORT: ['rotten robbie', 'chevron', 'shell', 'valero', 'caltrain', 'bart'],
     TRAVEL: ['airline', 'airlines', 'orbitz', 'kayak', 'travel'],
     PERSONAL_CARE: ['spa'],
-    UTILITIES: ['vonage', 'comcast']
+    UTILITIES: ['vonage', 'comcast', 'vonage', 'pacific gas and'],
+    CASH: ['atm'],
+    HEALTH: [],
 }
 
 
@@ -162,7 +170,16 @@ def list_categories():
     return engine.execute(select([categories]))
 
 
+def list_institutions():
+    return engine.execute(select([finins]))
+
+
 def update_tx_category(txid, category_id):
     stmt = update(xactions).where(xactions.c.id == txid).values(category_id = category_id)
     upd = engine.execute(stmt)
     return upd.rowcount
+
+
+def create_institution(name, type):
+    print("called create institution")
+    engine.execute(finins.insert(), name=name, type=type)

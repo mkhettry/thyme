@@ -2,7 +2,8 @@ import cmd
 import db
 from datetime import date
 
-import logging
+import loader
+
 
 class Thyme(cmd.Cmd):
     """Simple command line interpreter to explore expenses"""
@@ -33,7 +34,7 @@ class Thyme(cmd.Cmd):
         sum = 0
 
         for tx in transactions:
-            desc = " ".join(tx['description'].split()).title()
+            desc = " ".join(tx['description'].split()).title()[0:29]
             i += 1
             self.tx_id_map[i] = tx["id"]
             sum += float(tx['amount'])
@@ -74,6 +75,24 @@ class Thyme(cmd.Cmd):
         """
         for cat in db.list_categories():
             print("%-4s %-10s" % (str(cat[0]), cat[2]))
+
+    def do_inst(self, args):
+        """
+        CRUD on financial institutions
+        """
+        args_array = args.split()
+        command = args_array and args_array[0] or "list"
+        if command == "list":
+            for institution in db.list_institutions():
+                print("%-4s %-10s %-10s" % (str(institution[0]), institution[1], institution[2]))
+        elif command == "create":
+            db.create_institution(args_array[1], args_array[2])
+
+    def do_load(self, args):
+        file, institution, parser = args.split()
+        loader.load_xactions(file=open(file, "r"), institution=institution,parser=parser)
+
+
 
     @staticmethod
     def get_start_end(args):
