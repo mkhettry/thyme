@@ -89,8 +89,8 @@ class Thyme(cmd.Cmd):
             db.create_institution(args_array[1], args_array[2])
 
     def do_load(self, args):
-        file, institution, parser = args.split()
-        loader.load_xactions(file=open(file, "r"), institution=institution,parser=parser)
+        institution, file = args.split()
+        loader.load_qfx(institution, file=file)
 
 
 
