@@ -28,16 +28,17 @@ def load_qfx(institution_name, **kwargs):
     institution_id = db.find_institution_id(institution_name)
     categories_map = db.start_load()
 
+    total = 0
     for tx in soup.find_all("stmttrn"):
         # some qfx files have dates in the form: 20131207000000.000[-7:MST]
         txn_date = datetime.strptime(tx.find('dtposted').contents[0].strip()[:14], "%Y%m%d%H%M%S")
-        txn_type = tx.find('trntype').contents[0].strip()
         tx_amount = float(tx.find('trnamt').contents[0].strip())
         tx_description = tx.find('name').contents[0].strip()
-        print("Inserted tx with " + str(tx_amount) + " on " + str(txn_date))
-        db.insert_transaction(institution_id[0], categories_map, date=txn_date, amount=tx_amount,
-                              description=tx_description)
+        tx_fitid = tx.find('fitid').contents[0].strip()
+        total += db.insert_transaction(institution_id[0], categories_map, date=txn_date, amount=tx_amount,
+                              description=tx_description, fitid=tx_fitid)
 
+    print(str(total) + " transactions inserted")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='load transactions from CSV')

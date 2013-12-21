@@ -32,8 +32,14 @@ xactions = Table('transactions', metadata,
                  Column('institution_id', Integer, ForeignKey('institutions.id')),
                  Column('category_id', Integer, ForeignKey('categories.id')),
                  Column('date', Date),
+                 Column('fitid', String),
                  Column('description', String),
                  Column('amount', Float))
+
+description_category_mapping = Table('desc_category_mapping', metadata,
+                     Column('id', Integer, primary_key=True),
+                     Column('description', String),
+                     Column('category_id', Integer, ForeignKey('categories.id')))
 
 metadata.create_all(engine)
 
@@ -55,6 +61,7 @@ FEES = 'fees/interest'
 PERSONAL_CARE = 'personal_care'
 SHOPPING = 'shopping'
 TRANSFER = 'transfer'
+PAYCHECK = 'paycheck'
 
 for c in [UNCATEGORIZED, HOME, GROCERIES, RESTAURANTS, COFFEE, HEALTH, CASH, UTILITIES, TRAVEL, AUTO_TRANSPORT,
           PERSONAL_CARE, SHOPPING]:
@@ -65,22 +72,23 @@ category_pattern_map = {
     HOME: ['mortgage', 'hoa'],
     COFFEE: ['peets', 'starbucks', "peet's", 'coffee', 'tea', 'espresso'],
     GROCERIES: ['wholefoods', 'wholefds', 'grocery', 'safeway'],
-    RESTAURANTS: ['pizza', 'pizzeria', 'deli', 'kitchen', 'restuarant'],
+    RESTAURANTS: ['pizza', 'pizzeria', 'deli', 'kitchen', 'restuarant', 'bistro'],
     AUTO_TRANSPORT: ['rotten robbie', 'chevron', 'shell', 'valero', 'caltrain', 'bart'],
     TRAVEL: ['airline', 'airlines', 'orbitz', 'kayak', 'travel'],
     PERSONAL_CARE: ['spa'],
-    UTILITIES: ['vonage', 'comcast', 'vonage', 'pacific gas and'],
+    UTILITIES: ['vonage', 'comcast', 'vonage', 'pacific gas and', 'at&t'],
     CASH: ['atm'],
     HEALTH: [],
+    TRANSFER: [],
+    PAYCHECK: [],
+    ENTERTAINMENT: ['netflix', 'amc', 'theater', 'theatre']
 }
 
 
-def exists(date, description, amount):
-    stmt = select([xactions.c.id]). \
-        where(xactions.c.date == date). \
-        where(xactions.c.description == description). \
-        where(xactions.c.amount == amount)
-    return engine.execute(stmt).fetchone()
+def exists(fitid):
+    stmt = select([xactions.c.id]).where(xactions.c.fitid == fitid)
+    fv = engine.execute(stmt).fetchone()
+    return fv
 
 
 def read_for_month_year(year, month):
@@ -137,22 +145,26 @@ def start_load():
 
 
 def insert_transaction(institution_id, categories_map, **kwargs):
-    if len(kwargs) != 3:
+    if len(kwargs) != 4:
         return
+
+    skip = exists(kwargs['fitid'])
+
+    if skip:
+        return 0
 
     dt = kwargs['date']
     description = kwargs['description']
     amount = kwargs['amount']
 
-    skip = exists(dt, description, amount)
-
-    if not skip:
-        engine.execute(xactions.insert(),
-                       institution_id=institution_id,
-                       category_id=guess_category(description, categories_map),
-                       date=dt,
-                       description=description,
-                       amount=amount)
+    engine.execute(xactions.insert(),
+                   institution_id=institution_id,
+                   category_id=guess_category(description, categories_map),
+                   date=dt,
+                   description=description,
+                   amount=amount,
+                   fitid=kwargs['fitid'])
+    return 1
 
 
 def guess_category(description, categories_map):
@@ -175,9 +187,25 @@ def list_institutions():
 
 
 def update_tx_category(txid, category_id):
-    stmt = update(xactions).where(xactions.c.id == txid).values(category_id = category_id)
+    stmt = update(xactions).where(xactions.c.id == txid).values(category_id=category_id)
     upd = engine.execute(stmt)
+
+    if upd.rowcount == 1:
+        stmt = select([xactions.c.description]).where(xactions.c.id == txid)
+        desc = engine.execute(stmt).fetchone()
+        update_description_mapping(desc[0], category_id)
     return upd.rowcount
+
+
+def update_description_mapping(desc, category_id):
+    cleaned_desc = desc.strip().lower()
+    stmt = select([description_category_mapping.c.id]).where(description_category_mapping.c.description == cleaned_desc)
+
+    if not engine.execute(stmt).fetchone():
+        engine.execute(description_category_mapping.insert(), description=cleaned_desc, category_id=category_id)
+    else:
+        stmt = update(description_category_mapping).where(description_category_mapping.c.description == cleaned_desc).values(category_id=category_id)
+        engine.execute(stmt)
 
 
 def create_institution(name, type):

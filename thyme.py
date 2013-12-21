@@ -58,12 +58,16 @@ class Thyme(cmd.Cmd):
             else:
                 print("row updated")
 
+
     def do_bycat(self, args=""):
         """ show transactions by category. bycat 10 will aggregate transactions by category for the month of october"""
         start, end = Thyme.get_start_end(args)
         transactions = db.read_txn_for_time_by_category(start, end)
         sum = 0.0
         for tx in transactions:
+            category_name = tx['name'].title()
+            if category_name == 'Transfer' or category_name == 'Paycheck':
+                continue
             sum += float(tx[1])
             print("%-30s %10.2f" % (tx['name'].title(), tx[1]))
         print("%-30s %10.2f" % ("", sum))
