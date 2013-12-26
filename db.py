@@ -17,9 +17,11 @@ else:
 
 metadata = MetaData(bind=engine)
 
-finins = Table('institutions', metadata,
+finins = Table('accounts', metadata,
                Column('id', Integer, primary_key=True),
-               Column('name', String, unique=True),
+               Column('nickname', String, unique=True),
+               Column('fid', Integer),
+               Column('name', String),
                Column('type', String, nullable=False))
 
 categories = Table('categories', metadata,
@@ -29,7 +31,7 @@ categories = Table('categories', metadata,
 
 xactions = Table('transactions', metadata,
                  Column('id', Integer, primary_key=True),
-                 Column('institution_id', Integer, ForeignKey('institutions.id')),
+                 Column('institution_id', Integer, ForeignKey('accounts.id')),
                  Column('category_id', Integer, ForeignKey('categories.id')),
                  Column('date', Date),
                  Column('fitid', String),
@@ -37,9 +39,15 @@ xactions = Table('transactions', metadata,
                  Column('amount', Float))
 
 description_category_mapping = Table('desc_category_mapping', metadata,
+                                     Column('id', Integer, primary_key=True),
+                                     Column('description', String),
+                                     Column('category_id', Integer, ForeignKey('categories.id')))
+
+files_loaded = Table('files', metadata,
                      Column('id', Integer, primary_key=True),
-                     Column('description', String),
-                     Column('category_id', Integer, ForeignKey('categories.id')))
+                     Column('name', String),
+                     Column('mtime', Integer),
+                     Column('md5', String))
 
 metadata.create_all(engine)
 
@@ -102,12 +110,13 @@ def read_for_month_year(year, month):
     return read_txn_for_time(start, end)
 
 
-def read_txn_for_time(start_time, end_time, category_name = None):
+def read_txn_for_time(start_time, end_time, category_name=None):
     logging.info("Reading transactions from %s to %s" % (str(start_time), str(end_time)))
-    stmt = select([xactions.c.id, xactions.c.description, xactions.c.date, xactions.c.amount, categories.c.name]).\
-                    where(xactions.c.date >= start_time).\
-                    where( xactions.c.date < end_time).\
-                    select_from(xactions.join(categories))
+    stmt = select(
+        [xactions.c.id, xactions.c.description, xactions.c.date, xactions.c.amount, categories.c.name]).\
+        where(xactions.c.date >= start_time). \
+        where(xactions.c.date < end_time). \
+        select_from(xactions.join(categories))
     if category_name:
         stmt = stmt.where(categories.c.name == category_name)
 
@@ -115,19 +124,25 @@ def read_txn_for_time(start_time, end_time, category_name = None):
 
     return engine.execute(stmt)
 
+
 def read_txn_for_time_by_category(start_time, end_time):
-    stmt = select([categories.c.name, func.sum(xactions.c.amount)]).\
-                    where(xactions.c.date >= start_time).\
-                    where( xactions.c.date < end_time).\
-                    select_from(xactions.join(categories)).\
-                    group_by(categories.c.name)\
+    stmt = select([categories.c.name, func.sum(xactions.c.amount)]). \
+        where(xactions.c.date >= start_time). \
+        where(xactions.c.date < end_time). \
+        select_from(xactions.join(categories)). \
+        group_by(categories.c.name)\
 
 
     return engine.execute(stmt)
 
 
-def find_institution_id(name):
-    stmt = select([finins.c.id]).where(finins.c.name == name)
+def find_institution_id(nickname):
+    stmt = select([finins.c.id]).where(finins.c.nickname == nickname)
+    return engine.execute(stmt).fetchone()
+
+
+def find_institution_id(name, fid):
+    stmt = select([finins.c.id]).where(finins.c.name == name.strip()).where(finins.c.fid == int(fid))
     return engine.execute(stmt).fetchone()
 
 
@@ -136,15 +151,22 @@ def find_category_id(name):
     return engine.execute(stmt).fetchone()[0]
 
 
-def start_load():
+def load_categories():
     rows = engine.execute(select([categories]))
     category_map = {}
     for r in rows:
         category_map[r['name']] = r['id']
     return category_map
 
+def load_desc_category():
+    rows = engine.execute(select([description_category_mapping]))
+    desc_category_map = {}
+    for r in rows:
+        desc_category_map[r['description']] = r['category_id']
+    return desc_category_map
 
-def insert_transaction(institution_id, categories_map, **kwargs):
+
+def insert_transaction(institution_id, categories_map, desc_category_map, **kwargs):
     if len(kwargs) != 4:
         return
 
@@ -159,7 +181,7 @@ def insert_transaction(institution_id, categories_map, **kwargs):
 
     engine.execute(xactions.insert(),
                    institution_id=institution_id,
-                   category_id=guess_category(description, categories_map),
+                   category_id=guess_category(description, categories_map, desc_category_map),
                    date=dt,
                    description=description,
                    amount=amount,
@@ -167,12 +189,16 @@ def insert_transaction(institution_id, categories_map, **kwargs):
     return 1
 
 
-def guess_category(description, categories_map):
+def guess_category(description, categories_map, desc_category_mapping):
+    cleaned_description = clean_description(description)
+    if cleaned_description in desc_category_mapping:
+        return desc_category_mapping[cleaned_description]
+
     for category_name in category_pattern_map:
         possible_patterns = category_pattern_map[category_name]
         for pattern in possible_patterns:
             # Use regexp (\bpattern\b) instead of just string contains.
-            if pattern in description.lower():
+            if pattern in cleaned_description:
                 return categories_map[category_name]
 
     return categories_map[UNCATEGORIZED]
@@ -207,7 +233,27 @@ def update_description_mapping(desc, category_id):
         stmt = update(description_category_mapping).where(description_category_mapping.c.description == cleaned_desc).values(category_id=category_id)
         engine.execute(stmt)
 
+def clean_description(desc):
+    return desc.strip().lower()
 
 def create_institution(name, type):
     print("called create institution")
     engine.execute(finins.insert(), name=name, type=type)
+
+
+def need_to_load(file, stat):
+    if "qfx" not in file.lower():
+        return False
+
+    stmt = select([files_loaded])
+    loaded_files = engine.execute(stmt)
+
+    for loaded_file in loaded_files:
+        if loaded_file['name'] == file and int(loaded_file['mtime']) == int(stat.st_mtime):
+            return False
+
+    return True
+
+
+def file_loaded(file, stat):
+    engine.execute(files_loaded.insert(), name=file, mtime=int(stat.st_mtime))

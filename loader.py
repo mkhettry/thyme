@@ -2,6 +2,8 @@ import csv
 import argparse
 from parser import parsers
 import db
+import os
+from os.path import expanduser
 from bs4 import BeautifulSoup
 from datetime import datetime
 
@@ -12,7 +14,7 @@ def load_xactions(**kwargs):
     inst = kwargs['institution']
 
     institution_id = db.find_institution_id(inst)
-    categories_map = db.start_load()
+    categories_map = db.load_categories()
 
     count = 0
     for row in reader:
@@ -25,8 +27,13 @@ def load_xactions(**kwargs):
 def load_qfx(institution_name, **kwargs):
     soup = BeautifulSoup(open(kwargs['file']))
 
-    institution_id = db.find_institution_id(institution_name)
-    categories_map = db.start_load()
+    if institution_name:
+        institution_id = db.find_institution_id(institution_name)
+    else:
+        institution_id = db.find_institution_id(soup.find("org").contents[0], soup.find("org").find("fid").contents[0])
+
+    categories_map = db.load_categories()
+    desc_category_map = db.load_desc_category()
 
     total = 0
     for tx in soup.find_all("stmttrn"):
@@ -35,10 +42,29 @@ def load_qfx(institution_name, **kwargs):
         tx_amount = float(tx.find('trnamt').contents[0].strip())
         tx_description = tx.find('name').contents[0].strip()
         tx_fitid = tx.find('fitid').contents[0].strip()
-        total += db.insert_transaction(institution_id[0], categories_map, date=txn_date, amount=tx_amount,
+        total += db.insert_transaction(institution_id[0], categories_map, desc_category_map, date=txn_date, amount=tx_amount,
                               description=tx_description, fitid=tx_fitid)
 
-    print(str(total) + " transactions inserted")
+    db.file_loaded(kwargs['file'], os.stat(kwargs['file']))
+
+    print(str(total) + " transactions inserted for " + kwargs['file'])
+
+
+def load_qfx_new(dir=None):
+    if not dir:
+        dir = expanduser("~") + "/Downloads"
+
+    files = []
+    for file in os.listdir(dir):
+        fullpath = dir + "/" + file
+        if db.need_to_load(fullpath, os.stat(fullpath)):
+            files.append(fullpath)
+
+    for f in files:
+        load_qfx(None, file=f)
+
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='load transactions from CSV')
