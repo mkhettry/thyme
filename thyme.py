@@ -38,8 +38,8 @@ class Thyme(cmd.Cmd):
             i += 1
             self.tx_id_map[i] = tx["id"]
             sum += float(tx['amount'])
-            print("%-3s %-8s %-30s %-20s %10.2f" %
-                  (i, tx['date'].isoformat(), desc, tx['name'].title(), tx['amount']))
+            print("%-3s %-8s %-8s %-30s %-20s %10.2f" %
+                  (i, tx['nickname'], tx['date'].isoformat(), desc, tx['name'].title(), tx['amount']))
         print("%67s %10.2f" % ("Total", sum))
 
     def do_updcat(self, args=""):

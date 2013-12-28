@@ -113,10 +113,10 @@ def read_for_month_year(year, month):
 def read_txn_for_time(start_time, end_time, category_name=None):
     logging.info("Reading transactions from %s to %s" % (str(start_time), str(end_time)))
     stmt = select(
-        [xactions.c.id, xactions.c.description, xactions.c.date, xactions.c.amount, categories.c.name]).\
+        [xactions.c.id, xactions.c.description, xactions.c.date, xactions.c.amount, categories.c.name, finins.c.nickname]).\
         where(xactions.c.date >= start_time). \
         where(xactions.c.date < end_time). \
-        select_from(xactions.join(categories))
+        select_from(xactions.join(categories).join(finins))
     if category_name:
         stmt = stmt.where(categories.c.name == category_name)
 
