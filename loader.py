@@ -5,7 +5,7 @@ import db
 import os
 from os.path import expanduser
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import date, datetime
 
 
 def load_xactions(**kwargs):
@@ -37,6 +37,10 @@ def load_qfx(institution_name, **kwargs):
 
     total_inserted = 0
     total = 0
+
+    earliest_date = datetime.today()
+    newest_date = datetime(2007, 1, 1)
+
     for tx in soup.find_all("stmttrn"):
         total += 1
         # some qfx files have dates in the form: 20131207000000.000[-7:MST]
@@ -44,12 +48,23 @@ def load_qfx(institution_name, **kwargs):
         tx_amount = float(tx.find('trnamt').contents[0].strip())
         tx_description = tx.find('name').contents[0].strip()
         tx_fitid = tx.find('fitid').contents[0].strip()
-        total_inserted += db.insert_transaction(institution_id[0], categories_map, desc_category_map, date=txn_date, amount=tx_amount,
+        inserted = db.insert_transaction(institution_id[0], categories_map, desc_category_map, date=txn_date, amount=tx_amount,
                               description=tx_description, fitid=tx_fitid)
+
+        if inserted:
+            total_inserted += 1
+            if txn_date < earliest_date:
+                earliest_date = txn_date
+            if txn_date > newest_date:
+                newest_date = txn_date
 
     db.file_loaded(kwargs['file'], os.stat(kwargs['file']))
 
-    print(str(total_inserted) + "/" + str(total) + " transactions inserted for " + kwargs['file'])
+    if total_inserted > 0:
+        print("{0}/{1} transactions from {2} to {3} imported from {4}".format(
+            total_inserted, total, earliest_date.date(), newest_date.date(), kwargs['file']))
+    else:
+        print("{0}/{1} transactions imported from {2}".format(total_inserted, total, kwargs['file']))
 
 
 def load_qfx_new(dir=None):

@@ -173,7 +173,7 @@ def insert_transaction(institution_id, categories_map, desc_category_map, **kwar
     skip = exists(kwargs['fitid'])
 
     if skip:
-        return 0
+        return False
 
     dt = kwargs['date']
     description = kwargs['description']
@@ -186,7 +186,7 @@ def insert_transaction(institution_id, categories_map, desc_category_map, **kwar
                    description=description,
                    amount=amount,
                    fitid=kwargs['fitid'])
-    return 1
+    return True
 
 
 def guess_category(description, categories_map, desc_category_mapping):
