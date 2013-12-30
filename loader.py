@@ -48,8 +48,8 @@ def load_qfx(institution_name, **kwargs):
         tx_amount = float(tx.find('trnamt').contents[0].strip())
         tx_description = tx.find('name').contents[0].strip()
         tx_fitid = tx.find('fitid').contents[0].strip()
-        inserted = db.insert_transaction(institution_id[0], categories_map, desc_category_map, date=txn_date, amount=tx_amount,
-                              description=tx_description, fitid=tx_fitid)
+        inserted = db.insert_transaction(institution_id[0], categories_map, desc_category_map, date=txn_date,
+                                         amount=tx_amount, description=tx_description, fitid=tx_fitid)
 
         if inserted:
             total_inserted += 1

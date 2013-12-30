@@ -8,6 +8,11 @@ import loader
 class Thyme(cmd.Cmd):
     """Simple command line interpreter to explore expenses"""
 
+    GREEN = '\033[92m'
+    RED = '\033[91m'
+    END = '\033[0m'
+
+
     def __init__(self):
         cmd.Cmd.__init__(self)
         self.tx_id_map = {}
@@ -64,13 +69,26 @@ class Thyme(cmd.Cmd):
         start, end = Thyme.get_start_end(args)
         transactions = db.read_txn_for_time_by_category(start, end)
         sum = 0.0
+
+        budget_map = {}
+        total_budget = 0
+        for cat in db.list_categories():
+            budget_map[cat['name']] = cat['budget']
+            total_budget += cat['budget']
+
         for tx in transactions:
             category_name = tx['name'].title()
             if category_name == 'Transfer' or category_name == 'Paycheck':
                 continue
             sum += float(tx[1])
-            print("%-30s %10.2f" % (tx['name'].title(), tx[1]))
-        print("%-30s %10.2f" % ("", sum))
+            diff = budget_map[tx['name']] + float(tx[1])
+            if diff > 0:
+                color = self.GREEN
+            else:
+                color = self.RED
+
+            print("%-30s %10.2f %5d %s %8.2f %s" % (tx['name'].title(), tx[1], budget_map[tx['name']], color, diff, self.END))
+        print("%-30s %10.2f %6d" % ("", sum, total_budget))
 
 
     def do_cat(self, args):
@@ -78,7 +96,7 @@ class Thyme(cmd.Cmd):
         list all categories
         """
         for cat in db.list_categories():
-            print("%-4s %-10s" % (str(cat[0]), cat[2]))
+            print("%-4s %-24s %-4d" % (str(cat['id']), cat['name'], cat['budget']))
 
     def do_inst(self, args):
         """

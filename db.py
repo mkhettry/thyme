@@ -27,7 +27,8 @@ finins = Table('accounts', metadata,
 categories = Table('categories', metadata,
                    Column('id', Integer, primary_key=True),
                    Column('parent_id', Integer, ForeignKey('categories.id')),
-                   Column('name', String))
+                   Column('name', String),
+                   Column('budget', Integer, default=0))
 
 xactions = Table('transactions', metadata,
                  Column('id', Integer, primary_key=True),
