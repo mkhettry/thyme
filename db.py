@@ -87,7 +87,9 @@ category_pattern_map = {
     CASH: ['atm'],
     HEALTH: [],
     TRANSFER: [],
+    UNCATEGORIZED: [],
     PAYCHECK: [],
+
     ENTERTAINMENT: ['netflix', 'amc', 'theater', 'theatre']
 }
 
@@ -139,17 +141,12 @@ def read_txn_for_time_by_category(start_time, end_time):
     return engine.execute(stmt)
 
 
-def find_institution_id(nickname):
-    stmt = select([finins.c.id]).where(finins.c.nickname == nickname)
-    return engine.execute(stmt).fetchone()
-
-
 def find_institution_id(name, fid):
     stmt = select([finins.c.id]).where(finins.c.name == name.strip()).where(finins.c.fid == int(fid))
     account_id = engine.execute(stmt).fetchone()
 
     if not account_id:
-        res = engine.execute(finins.insert(), name=name, fid=fid)
+        res = engine.execute(finins.insert(), name=name.strip(), fid=fid)
         return res.inserted_primary_key[0]
     else:
         return account_id[0]
