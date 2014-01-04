@@ -215,7 +215,7 @@ def list_categories():
 
 
 def list_institutions():
-    return engine.execute(select([finins]))
+    return engine.execute(select([finins.c.id, finins.c.nickname, finins.c.name, finins.c.fid]))
 
 
 def update_tx_category(txid, category_id):
@@ -263,3 +263,8 @@ def need_to_load(file, stat):
 
 def file_loaded(file, stat):
     engine.execute(files_loaded.insert(), name=file, mtime=int(stat.st_mtime))
+
+
+def update_institution(id, nickname):
+    stmt = update(finins).where(finins.c.id == id).values(nickname=nickname)
+    engine.execute(stmt)

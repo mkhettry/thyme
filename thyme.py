@@ -98,17 +98,24 @@ class Thyme(cmd.Cmd):
         for cat in db.list_categories():
             print("%-4s %-24s %-4d" % (str(cat['id']), cat['name'], cat['budget']))
 
-    def do_inst(self, args):
+    def do_acct(self, args):
         """
-        CRUD on financial institutions
+        CRUD on accounts
         """
         args_array = args.split()
         command = args_array and args_array[0] or "list"
         if command == "list":
-            for institution in db.list_institutions():
-                print("%-4s %-10s %-10s" % (str(institution[0]), institution[1], institution[2]))
-        elif command == "create":
-            db.create_institution(args_array[1], args_array[2])
+            print("%-4s %-6s %-20s %6s" % ("Id", "Nickname", "Name", "Fid"))
+            print("-------------------------------------")
+            for account in db.list_institutions():
+                print("%-4d %-6s %-20s %6d" % (account[0], account[1], account[2], account[3]))
+        elif command == "update":
+            db.update_institution(int(args_array[1]), args_array[2])
+
+    #@staticmethod
+    #def print_table(fields, rows):
+    #    for field, size in fields.iteritems():
+    #
 
     def do_load(self, args):
         loader.load_qfx_new()
