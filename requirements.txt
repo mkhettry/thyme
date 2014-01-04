@@ -1,4 +1,6 @@
+BeautifulSoup==3.2.1
 SQLAlchemy==0.8.3
 beautifulsoup4==4.3.2
 psycopg2==2.5.1
+pysqlite==2.6.3
 wsgiref==0.1.2

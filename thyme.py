@@ -23,7 +23,7 @@ class Thyme(cmd.Cmd):
     def do_list(self, args=""):
         """
         list transactions. You can say 'list 10' for transactions in october.
-        without a numeric list defaults to the current month.
+        without a numeric list defaults to the current month
         """
         args_array = args.split()
         if len(args_array) == 1:
@@ -112,6 +112,11 @@ class Thyme(cmd.Cmd):
 
     def do_load(self, args):
         loader.load_qfx_new()
+
+    # try various patterns for specifying time.
+    # 10-11 (oct-nov) jan (january) or jan-mar or jan1-10 january 1st to the 10th.
+    #@staticmethod
+    #def parse_time(args):
 
 
 

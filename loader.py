@@ -24,13 +24,10 @@ def load_xactions(**kwargs):
     print(count)
 
 
-def load_qfx(institution_name, **kwargs):
+def load_qfx(**kwargs):
     soup = BeautifulSoup(open(kwargs['file']))
 
-    if institution_name:
-        institution_id = db.find_institution_id(institution_name)
-    else:
-        institution_id = db.find_institution_id(soup.find("org").contents[0], soup.find("org").find("fid").contents[0])
+    account_id = db.find_institution_id(soup.find("org").contents[0], soup.find("org").find("fid").contents[0])
 
     categories_map = db.load_categories()
     desc_category_map = db.load_desc_category()
@@ -48,7 +45,7 @@ def load_qfx(institution_name, **kwargs):
         tx_amount = float(tx.find('trnamt').contents[0].strip())
         tx_description = tx.find('name').contents[0].strip()
         tx_fitid = tx.find('fitid').contents[0].strip()
-        inserted = db.insert_transaction(institution_id[0], categories_map, desc_category_map, date=txn_date,
+        inserted = db.insert_transaction(account_id, categories_map, desc_category_map, date=txn_date,
                                          amount=tx_amount, description=tx_description, fitid=tx_fitid)
 
         if inserted:
@@ -78,7 +75,7 @@ def load_qfx_new(dir=None):
             files.append(fullpath)
 
     for f in files:
-        load_qfx(None, file=f)
+        load_qfx(file=f)
 
 
 

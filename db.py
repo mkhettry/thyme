@@ -4,13 +4,16 @@ from sqlalchemy import create_engine, MetaData
 from sqlalchemy import Table, Column, Integer, String, Text, ForeignKey, Date, Float
 from sqlalchemy.sql import select, func, update
 from datetime import date
+from sqlite3 import dbapi2 as sqlite
+
 import logging
 
 logging.basicConfig(filename='thyme.log', level=logging.INFO)
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 if os.environ.get('HEROKU') is None:
-    engine = create_engine('postgres://@localhost/thyme')
+#    engine = create_engine('postgres://@localhost/thyme')
+    engine = create_engine('sqlite+pysqlite:///thyme.db', module=sqlite)
 else:
     print("database URL is: " + os.environ['DATABASE_URL'])
     engine = create_engine(os.environ['DATABASE_URL'])
@@ -22,7 +25,7 @@ finins = Table('accounts', metadata,
                Column('nickname', String, unique=True),
                Column('fid', Integer),
                Column('name', String),
-               Column('type', String, nullable=False))
+               Column('type', String))
 
 categories = Table('categories', metadata,
                    Column('id', Integer, primary_key=True),
@@ -72,11 +75,6 @@ SHOPPING = 'shopping'
 TRANSFER = 'transfer'
 PAYCHECK = 'paycheck'
 
-for c in [UNCATEGORIZED, HOME, GROCERIES, RESTAURANTS, COFFEE, HEALTH, CASH, UTILITIES, TRAVEL, AUTO_TRANSPORT,
-          PERSONAL_CARE, SHOPPING]:
-    if not engine.execute(select([categories.c.id]).where(categories.c.name == c)).fetchone():
-        engine.execute(categories.insert(), name=c)
-
 category_pattern_map = {
     HOME: ['mortgage', 'hoa'],
     COFFEE: ['peets', 'starbucks', "peet's", 'coffee', 'tea', 'espresso'],
@@ -92,6 +90,10 @@ category_pattern_map = {
     PAYCHECK: [],
     ENTERTAINMENT: ['netflix', 'amc', 'theater', 'theatre']
 }
+
+for c in category_pattern_map.keys():
+    if not engine.execute(select([categories.c.id]).where(categories.c.name == c)).fetchone():
+        engine.execute(categories.insert(), name=c)
 
 
 def exists(fitid):
@@ -144,7 +146,13 @@ def find_institution_id(nickname):
 
 def find_institution_id(name, fid):
     stmt = select([finins.c.id]).where(finins.c.name == name.strip()).where(finins.c.fid == int(fid))
-    return engine.execute(stmt).fetchone()
+    account_id = engine.execute(stmt).fetchone()
+
+    if not account_id:
+        res = engine.execute(finins.insert(), name=name, fid=fid)
+        return res.inserted_primary_key[0]
+    else:
+        return account_id[0]
 
 
 def find_category_id(name):
