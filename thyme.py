@@ -12,6 +12,9 @@ class Thyme(cmd.Cmd):
     RED = '\033[91m'
     END = '\033[0m'
 
+    MONTHS = {"jan": 1, "january": 1, "feb": 2, "february": 2, "mar": 3, "march": 3, "apr": 4, "april": 4,
+              "may": 6, "june": 6, "jun": 6, "jul": 7, "july": 7, "aug": 8, "august": 8, "sep": 9, "sept": 9,
+              "oct": 10, "october": 10, "nov": 11, "november": 11, "dec": 12, "december": 12}
 
     def __init__(self):
         cmd.Cmd.__init__(self)
@@ -33,7 +36,8 @@ class Thyme(cmd.Cmd):
             time = args_array[1]
             category_filter = args_array[0].strip().lower()
 
-        start, end = Thyme.get_start_end(time)
+        start, end = self.guess_time_range(time)
+
         transactions = db.read_txn_for_time(start, end, category_filter)
         i = 0
         sum = 0
@@ -66,7 +70,7 @@ class Thyme(cmd.Cmd):
 
     def do_bycat(self, args=""):
         """ show transactions by category. bycat 10 will aggregate transactions by category for the month of october"""
-        start, end = Thyme.get_start_end(args)
+        start, end = self.guess_time_range(args)
         transactions = db.read_txn_for_time_by_category(start, end)
         sum = 0.0
 
@@ -120,13 +124,6 @@ class Thyme(cmd.Cmd):
     def do_load(self, args):
         loader.load_qfx_new()
 
-    # try various patterns for specifying time.
-    # 10-11 (oct-nov) jan (january) or jan-mar or jan1-10 january 1st to the 10th.
-    #@staticmethod
-    #def parse_time(args):
-
-
-
     @staticmethod
     def get_start_end(args):
         today = date.today()
@@ -140,6 +137,57 @@ class Thyme(cmd.Cmd):
             start = date(today.year, month, 1)
             end = Thyme.start_of_next_month(today.year, month)
             return start, end
+
+    # valid values are jan, jan:mar, jan, 1, 1:3
+    def guess_time_range(self, args):
+
+        args_array = args.split(":")
+        if len(args_array) == 1:
+            start = self.get_first_of_month(args_array[0])
+            end = self.next_month(start)
+            return start, end
+        else:
+            start = self.get_first_of_month(args_array[0])
+            end = self.get_last_of_month(args_array[1])
+
+            return start, end
+
+
+    def next_month(self, dt):
+        if dt.month == 12:
+            return date(dt.year + 1, 1, 1)
+        else:
+            return date(dt.year, dt.month + 1, 1)
+
+
+    def get_first_of_month(self, arg):
+        today = date.today()
+
+        month = self.get_month(arg)
+
+        if month <= today.month:
+            return date(today.year, month, 1)
+        else:
+            return date(today.year - 1, month, 1)
+
+    def get_month(self, arg):
+        normalized = arg.strip().lower()
+        if normalized in self.MONTHS:
+            month = self.MONTHS[normalized]
+        else:
+            month = int(normalized)
+        return month
+
+    def get_last_of_month(self, arg):
+        today = date.today()
+
+        month = self.get_month(arg)
+
+        if month == 12:
+            return date(today.year + 1, 1, 1)
+        else:
+            return date(today.year, month + 1, 1)
+
 
     @staticmethod
     def start_of_next_month(year, month):
