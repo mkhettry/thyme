@@ -20,7 +20,7 @@ class Thyme(cmd.Cmd):
 
     LIST_PARSER = parser = argparse.ArgumentParser(description='List Parser')
     LIST_PARSER.add_argument("-f", "--filter", help='Search for transactions by this filter', default="")
-    LIST_PARSER.add_argument('timerange', nargs=1, help='time range for transactions')
+    LIST_PARSER.add_argument('timerange', nargs='?', help='time range for transactions')
 
     def __init__(self):
         cmd.Cmd.__init__(self)
@@ -48,7 +48,7 @@ class Thyme(cmd.Cmd):
         args_array = args.split()
         parsed_args = self.LIST_PARSER.parse_args(args_array)
 
-        start, end = self.guess_time_range(parsed_args.timerange[0])
+        start, end = self.guess_time_range(parsed_args.timerange)
 
         transactions = db.read_txn_for_time(start, end, parsed_args.filter)
         i = 0
@@ -152,18 +152,21 @@ class Thyme(cmd.Cmd):
 
     # valid values are jan, jan:mar, jan, 1, 1:3
     def guess_time_range(self, args):
-        logging.info("Guessing time range for " + args)
 
-        args_array = args.split(":")
-        if len(args_array) == 1:
-            start = self.get_first_of_month(args_array[0])
+        if not args:
+            today = date.today()
+            start = date(today.year, today.month, 1)
             end = self.next_month(start)
-            return start, end
         else:
-            start = self.get_first_of_month(args_array[0])
-            end = self.get_last_of_month(args_array[1])
+            args_array = args.split(":")
+            if len(args_array) == 1:
+                start = self.get_first_of_month(args_array[0])
+                end = self.next_month(start)
+            else:
+                start = self.get_first_of_month(args_array[0])
+                end = self.get_last_of_month(args_array[1])
 
-            return start, end
+        return start, end
 
 
     def next_month(self, dt):
