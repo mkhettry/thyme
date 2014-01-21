@@ -4,3 +4,4 @@ venv/
 *.qfx
 *.csv
 *.log
+thyme.db
