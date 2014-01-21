@@ -3,6 +3,7 @@ import db
 from datetime import date
 
 import loader
+import logging
 
 
 class Thyme(cmd.Cmd):
@@ -140,6 +141,7 @@ class Thyme(cmd.Cmd):
 
     # valid values are jan, jan:mar, jan, 1, 1:3
     def guess_time_range(self, args):
+        logging.info("Guessing time range for " + args)
 
         args_array = args.split(":")
         if len(args_array) == 1:
@@ -182,11 +184,15 @@ class Thyme(cmd.Cmd):
         today = date.today()
 
         month = self.get_month(arg)
+        if month <= today.month:
+            year = today.year
+        else:
+            year = today.year - 1
 
         if month == 12:
-            return date(today.year + 1, 1, 1)
+            return date(year + 1, 1, 1)
         else:
-            return date(today.year, month + 1, 1)
+            return date(year, month + 1, 1)
 
 
     @staticmethod
