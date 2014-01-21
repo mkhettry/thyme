@@ -4,7 +4,8 @@ from datetime import date
 
 import loader
 import logging
-
+import argparse
+from argparse import ArgumentError
 
 class Thyme(cmd.Cmd):
     """Simple command line interpreter to explore expenses"""
@@ -17,6 +18,10 @@ class Thyme(cmd.Cmd):
               "may": 6, "june": 6, "jun": 6, "jul": 7, "july": 7, "aug": 8, "august": 8, "sep": 9, "sept": 9,
               "oct": 10, "october": 10, "nov": 11, "november": 11, "dec": 12, "december": 12}
 
+    LIST_PARSER = parser = argparse.ArgumentParser(description='List Parser')
+    LIST_PARSER.add_argument("-f", "--filter", help='Search for transactions by this filter', default="")
+    LIST_PARSER.add_argument('timerange', nargs=1, help='time range for transactions')
+
     def __init__(self):
         cmd.Cmd.__init__(self)
         self.tx_id_map = {}
@@ -26,20 +31,26 @@ class Thyme(cmd.Cmd):
 
     def do_list(self, args=""):
         """
-        list transactions. You can say 'list 10' for transactions in october.
-        without a numeric list defaults to the current month
+        list transactions. The syntax is list [-f filter] [timerange]
+
+        The filter is matched against the transaction description as well as the category name.
+        There are a few different ways to specify the timerange.
+
+        Examples:
+
+            list dec            # Show all transactions for december.
+            list nov:jan        # Show all transactions from november to january inclusive.
+            list -f coffee jan  # show me tx's with the word coffee or the category coffee for january
+            list -f pizza       # All transactions with the word pizza in them for the current month
+
         """
+
         args_array = args.split()
-        if len(args_array) == 1:
-            time = args_array[0]
-            category_filter = None
-        else:
-            time = args_array[1]
-            category_filter = args_array[0].strip().lower()
+        parsed_args = self.LIST_PARSER.parse_args(args_array)
 
-        start, end = self.guess_time_range(time)
+        start, end = self.guess_time_range(parsed_args.timerange[0])
 
-        transactions = db.read_txn_for_time(start, end, category_filter)
+        transactions = db.read_txn_for_time(start, end, parsed_args.filter)
         i = 0
         sum = 0
 
