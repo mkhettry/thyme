@@ -1,7 +1,7 @@
 import os
 
 from sqlalchemy import create_engine, MetaData
-from sqlalchemy import Table, Column, Integer, String, Text, ForeignKey, Date, Float
+from sqlalchemy import Table, Column, Integer, String, Text, ForeignKey, Date, Float, or_
 from sqlalchemy.sql import select, func, update
 from datetime import date
 from sqlite3 import dbapi2 as sqlite
@@ -76,10 +76,11 @@ TRANSFER = 'transfer'
 PAYCHECK = 'paycheck'
 
 category_pattern_map = {
+    SHOPPING: ['macys', 'nordstorm', 'bloomingdales', 'victorias', 'amazon'],
     HOME: ['mortgage', 'hoa'],
     COFFEE: ['peets', 'starbucks', "peet's", 'coffee', 'tea', 'espresso'],
     GROCERIES: ['wholefoods', 'wholefds', 'grocery', 'safeway'],
-    RESTAURANTS: ['pizza', 'pizzeria', 'deli', 'kitchen', 'restuarant', 'bistro'],
+    RESTAURANTS: ['pizza', 'pizzeria', 'deli', 'kitchen', 'restaurant', 'bistro'],
     AUTO_TRANSPORT: ['rotten robbie', 'chevron', 'shell', 'valero', 'caltrain', 'bart'],
     TRAVEL: ['airline', 'airlines', 'orbitz', 'kayak', 'travel'],
     PERSONAL_CARE: ['spa'],
@@ -123,7 +124,10 @@ def read_txn_for_time(start_time, end_time, category_name=None):
         where(xactions.c.date < end_time). \
         select_from(xactions.join(categories).join(finins))
     if category_name:
-        stmt = stmt.where(categories.c.name == category_name)
+        filter_string = "%" + category_name + "%"
+        stmt = stmt.where(or_(
+            categories.c.name.like(filter_string),
+            xactions.c.description.like(filter_string)))
 
     stmt = stmt.order_by(xactions.c.date)
 
