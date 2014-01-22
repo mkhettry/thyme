@@ -91,7 +91,7 @@ class Thyme(cmd.Cmd):
             diff = budget_map[tx['name']] + float(tx[1])
             td.print_row(tx['name'].title(), self.print_amount(tx[1], color_negative=False), budget_map[tx['name']],
                          self.print_amount(diff, color_negative=True))
-        td.print_summary(self.print_amount(sum), total_budget, self.print_amount(total_budget + sum))
+        td.print_summary(self.print_amount(sum), total_budget, self.print_amount(total_budget + sum, color_negative=True))
 
 
     def do_updcat(self, args=""):
