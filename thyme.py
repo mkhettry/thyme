@@ -103,9 +103,9 @@ class Thyme(cmd.Cmd):
                 continue
             sum += float(tx[1])
             diff = budget_map[tx['name']] + float(tx[1])
-            print("%-30s %10.2f %6d %s" % (tx['name'].title(), tx[1], budget_map[tx['name']], self.print_amount(diff, neg=True)))
+            print("%-30s %s %6d %s" % (tx['name'].title(), self.print_amount(tx[1], color_negative=False), budget_map[tx['name']], self.print_amount(diff, color_negative=True)))
 
-        print("%-30s %10.2f %6d %s" % ("", sum, total_budget, self.print_amount(total_budget + sum)))
+        print("%-30s %s %6d %s" % ("", self.print_amount(sum), total_budget, self.print_amount(total_budget + sum)))
 
 
     def do_cat(self, args):
@@ -248,9 +248,9 @@ class Thyme(cmd.Cmd):
         else:
             return date(year, month + 1, 1)
 
-    def print_amount(self, amount, neg=False):
+    def print_amount(self, amount, color_negative=False):
         if amount < 0.0:
-            if neg:
+            if color_negative:
                 return self.RED + '%10.2f' % -amount + self.END
             else:
                 return '%10.2f' % -amount
