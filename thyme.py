@@ -51,22 +51,23 @@ class Thyme(cmd.Cmd):
         start, end = self.guess_time_range(parsed_args.timerange)
 
         idx = 0
-        sum = 0
+        sum = 0.0
+
+        td = TabularDisplay(('Id', -3), ('Acct', -8), ('Date', -10), ('Description', -30), ('Category', -20), ('Amount', 10, '*'))
         transactions = db.read_txn_for_time(start, end, parsed_args.filter)
+        td.print_header()
         for tx in transactions:
-            sum += self.print_transaction(idx, tx)
+            self.print_transaction(td, idx, tx)
             idx += 1
+            sum += tx['amount']
 
-        print("%67s %10.2f" % ("Total", sum))
+        td.print_summary(self.print_amount(sum))
 
 
-    def print_transaction(self, tx_id, tx):
+    def print_transaction(self, td, tx_id, tx):
         desc = " ".join(tx['description'].split()).title()[0:29]
         self.tx_id_map[tx_id] = tx["id"]
-        amount = float(tx['amount'])
-        print("%-3s %8s %-8s %-30s %-20s %s" %
-              (tx_id, tx['nickname'], tx['date'].isoformat(), desc, tx['name'].title(), self.print_amount(tx['amount'])))
-        return amount
+        td.print_row(tx_id, tx['nickname'], tx['date'].isoformat(), desc, tx['name'].title(), self.print_amount(tx['amount']))
 
     def do_updcat(self, args=""):
         """
@@ -258,6 +259,62 @@ class Thyme(cmd.Cmd):
             return self.GREEN + ('%10.2f' % amount) + self.END
 
 
+
+class TabularDisplay(object):
+
+    def __init__(self, *columns):
+        self.columns = columns
+        self.header = ""
+        self.divider = ""
+
+        # print("%-3s %-8s %-8s %-30s %-16s %-12s" %
+
+        for column in self.columns:
+            if self.header:
+                self.header += " "
+            fmt = "%" + str(column[1]) + 's'
+            self.header += (fmt % column[0])
+
+        # I'm sure there is a better way to do this! No stackoverlow over the pacific :(
+        for i in xrange(len(self.header)):
+            self.divider += "-"
+
+    def print_header(self):
+        print(self.header)
+        print(self.divider)
+
+    def print_row(self, *values):
+        if len(values) != len(self.columns):
+            raise ArgumentError
+        # man, this is ugly. no other words
+
+        row = ""
+        idx = 0
+        for column in self.columns:
+            if row:
+                row += " "
+            format = "%" + str(column[1]) + 's'
+            row += (format % values[idx])
+            idx += 1
+
+        print(row)
+
+    def print_summary(self, *values):
+        print(self.divider)
+        summary = ""
+        values_idx = 0
+        for column in self.columns:
+            if summary:
+                summary += ' '
+
+            fmt = "%" + str(column[1]) + 's'
+            if len(column) > 2:
+                summary += (fmt % values[values_idx])
+                values_idx += 1
+            else:
+                summary += (fmt % ' ')
+
+        print(summary)
 
 if __name__ == '__main__':
     thyme = Thyme()
