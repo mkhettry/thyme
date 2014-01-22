@@ -53,21 +53,46 @@ class Thyme(cmd.Cmd):
         idx = 0
         sum = 0.0
 
-        td = TabularDisplay(('Id', -3), ('Acct', -8), ('Date', -10), ('Description', -30), ('Category', -20), ('Amount', 10, '*'))
         transactions = db.read_txn_for_time(start, end, parsed_args.filter)
+
+        td = TabularDisplay(('Id', -3), ('Acct', -8), ('Date', -10), ('Description', -30), ('Category', -20), ('Amount', 10, '*'))
         td.print_header()
+
         for tx in transactions:
-            self.print_transaction(td, idx, tx)
+            desc = " ".join(tx['description'].split()).title()[0:29]
+            self.tx_id_map[idx] = tx["id"]
+            td.print_row(idx, tx['nickname'], tx['date'].isoformat(), desc, tx['name'].title(), self.print_amount(tx['amount']))
+
             idx += 1
             sum += tx['amount']
 
         td.print_summary(self.print_amount(sum))
 
 
-    def print_transaction(self, td, tx_id, tx):
-        desc = " ".join(tx['description'].split()).title()[0:29]
-        self.tx_id_map[tx_id] = tx["id"]
-        td.print_row(tx_id, tx['nickname'], tx['date'].isoformat(), desc, tx['name'].title(), self.print_amount(tx['amount']))
+    def do_bycat(self, args=""):
+        """ show transactions by category. bycat 10 will aggregate transactions by category for the month of october"""
+        start, end = self.guess_time_range(args)
+        transactions = db.read_txn_for_time_by_category(start, end)
+        sum = 0.0
+
+        budget_map = {}
+        total_budget = 0
+        for cat in db.list_categories():
+            budget_map[cat['name']] = cat['budget']
+            total_budget += cat['budget']
+        td = TabularDisplay(('Category', -30), ('Total', 10, '*'), ('Budget', 10, '*'), ('Diff', 10, '*'))
+        td.print_header()
+
+        for tx in transactions:
+            category_name = tx['name'].title()
+            if category_name == 'Transfer' or category_name == 'Paycheck':
+                continue
+            sum += float(tx[1])
+            diff = budget_map[tx['name']] + float(tx[1])
+            td.print_row(tx['name'].title(), self.print_amount(tx[1], color_negative=False), budget_map[tx['name']],
+                         self.print_amount(diff, color_negative=True))
+        td.print_summary(self.print_amount(sum), total_budget, self.print_amount(total_budget + sum))
+
 
     def do_updcat(self, args=""):
         """
@@ -86,28 +111,6 @@ class Thyme(cmd.Cmd):
                 print("row updated")
 
 
-    def do_bycat(self, args=""):
-        """ show transactions by category. bycat 10 will aggregate transactions by category for the month of october"""
-        start, end = self.guess_time_range(args)
-        transactions = db.read_txn_for_time_by_category(start, end)
-        sum = 0.0
-
-        budget_map = {}
-        total_budget = 0
-        for cat in db.list_categories():
-            budget_map[cat['name']] = cat['budget']
-            total_budget += cat['budget']
-
-        for tx in transactions:
-            category_name = tx['name'].title()
-            if category_name == 'Transfer' or category_name == 'Paycheck':
-                continue
-            sum += float(tx[1])
-            diff = budget_map[tx['name']] + float(tx[1])
-            print("%-30s %s %6d %s" % (tx['name'].title(), self.print_amount(tx[1], color_negative=False), budget_map[tx['name']], self.print_amount(diff, color_negative=True)))
-
-        print("%-30s %s %6d %s" % ("", self.print_amount(sum), total_budget, self.print_amount(total_budget + sum)))
-
 
     def do_cat(self, args):
         """
@@ -123,11 +126,14 @@ class Thyme(cmd.Cmd):
         command = args_array and args_array[0] or "list"
 
         if command == "list":
-            budget = 0.0
+            budget = 0
+            td = TabularDisplay(('Name', -24), ('Budget', 6, '*'))
+            td.print_header()
             for cat in db.list_categories():
-                print("%-4s %-24s %-4d" % (str(cat['id']), cat['name'], cat['budget']))
+                td.print_row(cat['name'].title(), cat['budget'])
+                #print("%-4s %-24s %-4d" % (str(cat['id']), cat['name'], cat['budget']))
                 budget += cat['budget']
-            print("Total Budget: %10.2f" % budget)
+            td.print_summary(budget)
 
         elif command == "add":
             if len(args_array) != 2:

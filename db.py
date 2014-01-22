@@ -231,7 +231,7 @@ def guess_category(description, categories_map, desc_category_mapping):
 
 
 def list_categories():
-    return engine.execute(select([categories]))
+    return engine.execute(select([categories]).order_by(categories.c.budget, categories.c.name))
 
 
 def list_institutions():
