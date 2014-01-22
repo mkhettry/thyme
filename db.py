@@ -139,7 +139,7 @@ def read_txn_for_time_by_category(start_time, end_time):
     stmt = select([categories.c.name, func.sum(xactions.c.amount)]). \
         where(xactions.c.date >= start_time). \
         where(xactions.c.date < end_time). \
-        select_from(xactions.join(categories)). \
+        select_from(categories.outerjoin(xactions)). \
         group_by(categories.c.name)\
 
 
