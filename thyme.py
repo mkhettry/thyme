@@ -47,6 +47,7 @@ class Thyme(cmd.Cmd):
 
         args_array = args.split()
         parsed_args = self.LIST_PARSER.parse_args(args_array)
+        logging.info(parsed_args)
 
         start, end = self.guess_time_range(parsed_args.timerange)
 
