@@ -159,7 +159,10 @@ def find_institution_id(name, fid):
 
 def find_category_id(name):
     stmt = select([categories.c.id]).where(categories.c.name == name)
-    return engine.execute(stmt).fetchone()[0]
+    try:
+        return engine.execute(stmt).fetchone()[0]
+    except:
+        return None
 
 
 def load_categories():
@@ -199,6 +202,18 @@ def insert_transaction(institution_id, categories_map, desc_category_map, **kwar
                    fitid=kwargs['fitid'])
     return True
 
+
+def insert_category(category_name):
+    engine.execute(categories.insert(), name=category_name)
+
+def update_category(category_name, budget):
+    category_id = find_category_id(category_name)
+    if category_id:
+        stmt = update(categories).where(categories.c.id == category_id).values(budget=budget)
+        upd = engine.execute(stmt)
+        return upd.rowcount
+    else:
+        return 0
 
 def guess_category(description, categories_map, desc_category_mapping):
     cleaned_description = clean_description(description)

@@ -18,7 +18,7 @@ class Thyme(cmd.Cmd):
               "may": 6, "june": 6, "jun": 6, "jul": 7, "july": 7, "aug": 8, "august": 8, "sep": 9, "sept": 9,
               "oct": 10, "october": 10, "nov": 11, "november": 11, "dec": 12, "december": 12}
 
-    LIST_PARSER = parser = argparse.ArgumentParser(description='List Parser')
+    LIST_PARSER = argparse.ArgumentParser(description='List Parser')
     LIST_PARSER.add_argument("-f", "--filter", help='Search for transactions by this filter', default="")
     LIST_PARSER.add_argument('timerange', nargs='?', help='time range for transactions')
 
@@ -45,24 +45,28 @@ class Thyme(cmd.Cmd):
 
         """
 
-        args_array = args.split()
-        parsed_args = self.LIST_PARSER.parse_args(args_array)
+        parsed_args = self.LIST_PARSER.parse_args(args.split())
         logging.info(parsed_args)
 
         start, end = self.guess_time_range(parsed_args.timerange)
 
-        transactions = db.read_txn_for_time(start, end, parsed_args.filter)
-        i = 0
+        idx = 0
         sum = 0
-
+        transactions = db.read_txn_for_time(start, end, parsed_args.filter)
         for tx in transactions:
-            desc = " ".join(tx['description'].split()).title()[0:29]
-            i += 1
-            self.tx_id_map[i] = tx["id"]
-            sum += float(tx['amount'])
-            print("%-3s %8s %-8s %-30s %-20s %s" %
-                  (i, tx['nickname'], tx['date'].isoformat(), desc, tx['name'].title(), self.print_amount(tx['amount'])))
+            sum += self.print_transaction(idx, tx)
+            idx += 1
+
         print("%67s %10.2f" % ("Total", sum))
+
+
+    def print_transaction(self, tx_id, tx):
+        desc = " ".join(tx['description'].split()).title()[0:29]
+        self.tx_id_map[tx_id] = tx["id"]
+        amount = float(tx['amount'])
+        print("%-3s %8s %-8s %-30s %-20s %s" %
+              (tx_id, tx['nickname'], tx['date'].isoformat(), desc, tx['name'].title(), self.print_amount(tx['amount'])))
+        return amount
 
     def do_updcat(self, args=""):
         """
@@ -99,21 +103,48 @@ class Thyme(cmd.Cmd):
                 continue
             sum += float(tx[1])
             diff = budget_map[tx['name']] + float(tx[1])
-            if diff > 0:
-                color = self.GREEN
-            else:
-                color = self.RED
+            print("%-30s %10.2f %6d %s" % (tx['name'].title(), tx[1], budget_map[tx['name']], self.print_amount(diff, neg=True)))
 
-            print("%-30s %10.2f %5d %s %8.2f %s" % (tx['name'].title(), tx[1], budget_map[tx['name']], color, diff, self.END))
-        print("%-30s %10.2f %6d" % ("", sum, total_budget))
+        print("%-30s %10.2f %6d %s" % ("", sum, total_budget, self.print_amount(total_budget + sum)))
 
 
     def do_cat(self, args):
         """
-        list all categories
+        List, Add or Update categories
+
+        Examples:
+            cat                           # list out all categories
+            cat list                      #  -- ditto --
+            cat add booze                 # what can i say? i drink a lot!
+            cat update shopping 200    # set the budget for shopping to 200.
         """
-        for cat in db.list_categories():
-            print("%-4s %-24s %-4d" % (str(cat['id']), cat['name'], cat['budget']))
+        args_array = args.split()
+        command = args_array and args_array[0] or "list"
+
+        if command == "list":
+            budget = 0.0
+            for cat in db.list_categories():
+                print("%-4s %-24s %-4d" % (str(cat['id']), cat['name'], cat['budget']))
+                budget += cat['budget']
+            print("Total Budget: %10.2f" % budget)
+
+        elif command == "add":
+            if len(args_array) != 2:
+                print("I expect the name of the category you want to add")
+            else:
+                db.insert_category(args_array[1])
+        elif command == "update":
+            if len(args_array) != 3:
+                print("I expect a category name and amount")
+            else:
+                if db.update_category(args_array[1], args_array[2]) == 1:
+                    print("Category updated")
+                else:
+                    print("I could not find category '" + args_array[1] + "'")
+        else:
+            print("I don't understand " + command)
+
+
 
     def do_acct(self, args):
         """
@@ -217,9 +248,12 @@ class Thyme(cmd.Cmd):
         else:
             return date(year, month + 1, 1)
 
-    def print_amount(self, amount):
+    def print_amount(self, amount, neg=False):
         if amount < 0.0:
-            return '%10.2f' % -amount
+            if neg:
+                return self.RED + '%10.2f' % -amount + self.END
+            else:
+                return '%10.2f' % -amount
         else:
             return self.GREEN + ('%10.2f' % amount) + self.END
 
