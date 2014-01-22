@@ -158,7 +158,7 @@ def find_institution_id(name, fid):
 
 
 def find_category_id(name):
-    stmt = select([categories.c.id]).where(categories.c.name == name)
+    stmt = select([categories.c.id]).where(categories.c.name.like('%' + name + '%'))
     try:
         return engine.execute(stmt).fetchone()[0]
     except:
