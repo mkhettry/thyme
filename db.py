@@ -118,7 +118,6 @@ def read_for_month_year(year, month):
 
 
 def read_txn_for_time(start_time, end_time, filter=None, only_new=False):
-    logging.info("Only new is: " + only_new)
     logging.info("Reading transactions from %s to %s" % (str(start_time), str(end_time)))
     stmt = select(
         [xactions.c.id, xactions.c.description, xactions.c.date, xactions.c.amount, categories.c.name, finins.c.nickname]).\
@@ -127,7 +126,6 @@ def read_txn_for_time(start_time, end_time, filter=None, only_new=False):
         select_from(xactions.join(categories).join(finins))
 
     if only_new:
-        logging.info("Only new is SET")
         stmt = stmt.where(xactions.c.new > 0)
 
     if filter:

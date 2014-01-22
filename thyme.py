@@ -43,7 +43,7 @@ class Thyme(cmd.Cmd):
             list nov:jan        # Show all transactions from november to january inclusive.
             list -f coffee jan  # show me tx's with the word coffee or the category coffee for january
             list -f pizza       # All transactions with the word pizza in them for the current month
-
+            list --new -f uncat # Show all uncategorized transactions from the last load command.
         """
 
         parsed_args = self.LIST_PARSER.parse_args(args.split())
@@ -124,7 +124,7 @@ class Thyme(cmd.Cmd):
             cat                           # list out all categories
             cat list                      #  -- ditto --
             cat add booze                 # what can i say? i drink a lot!
-            cat update shopping 200    # set the budget for shopping to 200.
+            cat update shopping 200       # set the budget for shopping to 200.
         """
         args_array = args.split()
         command = args_array and args_array[0] or "list"
@@ -171,10 +171,6 @@ class Thyme(cmd.Cmd):
         elif command == "update":
             db.update_institution(int(args_array[1]), args_array[2])
 
-    #@staticmethod
-    #def print_table(fields, rows):
-    #    for field, size in fields.iteritems():
-    #
 
     def do_load(self, args):
         db.clear_last_load()
