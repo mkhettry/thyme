@@ -40,7 +40,8 @@ xactions = Table('transactions', metadata,
                  Column('date', Date),
                  Column('fitid', String),
                  Column('description', String),
-                 Column('amount', Float))
+                 Column('amount', Float),
+                 Column('new', Integer, default=1))
 
 description_category_mapping = Table('desc_category_mapping', metadata,
                                      Column('id', Integer, primary_key=True),
@@ -116,7 +117,8 @@ def read_for_month_year(year, month):
     return read_txn_for_time(start, end)
 
 
-def read_txn_for_time(start_time, end_time, filter=None):
+def read_txn_for_time(start_time, end_time, filter=None, only_new=False):
+    logging.info("Only new is: " + only_new)
     logging.info("Reading transactions from %s to %s" % (str(start_time), str(end_time)))
     stmt = select(
         [xactions.c.id, xactions.c.description, xactions.c.date, xactions.c.amount, categories.c.name, finins.c.nickname]).\
@@ -124,11 +126,16 @@ def read_txn_for_time(start_time, end_time, filter=None):
         where(xactions.c.date < end_time). \
         select_from(xactions.join(categories).join(finins))
 
+    if only_new:
+        logging.info("Only new is SET")
+        stmt = stmt.where(xactions.c.new > 0)
+
     if filter:
         filter_string = "%" + filter + "%"
         stmt = stmt.where(or_(
             categories.c.name.like(filter_string),
             xactions.c.description.like(filter_string)))
+
 
     stmt = stmt.order_by(xactions.c.date)
 
@@ -169,7 +176,7 @@ def load_categories():
     rows = engine.execute(select([categories]))
     category_map = {}
     for r in rows:
-        category_map[r['name']] = r['id']
+        category_map[r['name'].lower()] = r['id']
     return category_map
 
 def load_desc_category():
@@ -199,6 +206,7 @@ def insert_transaction(institution_id, categories_map, desc_category_map, **kwar
                    date=dt,
                    description=description,
                    amount=amount,
+                   new=1,
                    fitid=kwargs['fitid'])
     return True
 
@@ -287,4 +295,9 @@ def file_loaded(file, stat):
 
 def update_institution(id, nickname):
     stmt = update(finins).where(finins.c.id == id).values(nickname=nickname)
+    engine.execute(stmt)
+
+
+def clear_last_load():
+    stmt = update(xactions).values(new=0)
     engine.execute(stmt)

@@ -21,6 +21,7 @@ class Thyme(cmd.Cmd):
     LIST_PARSER = argparse.ArgumentParser(description='List Parser')
     LIST_PARSER.add_argument("-f", "--filter", help='Search for transactions by this filter', default="")
     LIST_PARSER.add_argument('timerange', nargs='?', help='time range for transactions')
+    LIST_PARSER.add_argument('--new', const='new', dest='new', nargs='?', help='time range for transactions')
 
     def __init__(self):
         cmd.Cmd.__init__(self)
@@ -49,11 +50,14 @@ class Thyme(cmd.Cmd):
         logging.info(parsed_args)
 
         start, end = self.guess_time_range(parsed_args.timerange)
+        if parsed_args.new and not parsed_args.timerange:
+            start = date(2000, 1, 1)
+            end = date.today()
 
         idx = 0
         sum = 0.0
 
-        transactions = db.read_txn_for_time(start, end, parsed_args.filter)
+        transactions = db.read_txn_for_time(start, end, parsed_args.filter, only_new=parsed_args.new)
 
         td = TabularDisplay(('Id', -3), ('Acct', -8), ('Date', -10), ('Description', -30), ('Category', -20), ('Amount', 10, '*'))
         td.print_header()
@@ -173,7 +177,9 @@ class Thyme(cmd.Cmd):
     #
 
     def do_load(self, args):
+        db.clear_last_load()
         loader.load_qfx_new()
+        print("Use 'list --new' to see new transactions loaded by this command.")
 
     @staticmethod
     def get_start_end(args):
